@@ -1,0 +1,122 @@
+# ==========================================
+# 🌍 GLOBAL / SYSTEM
+# ==========================================
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+Thumbs.db
+*.log
+
+# Entornos e información sensible / Llaves de AWS
+*.env
+*.env.*
+!.env.example
+.aws/
+aws-credentials*
+secrets/
+
+# ==========================================
+# 🛠️ IDEs & EDITORES
+# ==========================================
+.vs/
+.idea/
+*.sln.docstates
+*.user
+*.suo
+
+# VS Code (Mantiene configuraciones de equipo, ignora temporales)
+.vscode/*
+!.vscode/settings.json
+!.vscode/tasks.json
+!.vscode/launch.json
+!.vscode/extensions.json
+
+# ==========================================
+# ⚙️ BACKEND (.NET / C#) [/backend]
+# ==========================================
+[Bb]in/
+[Oo]bj/
+[Ll]og/
+[Ll]ogs/
+[Tt]emp/
+[Tt]mp/
+
+# Paquetes NuGet y cachés
+*.nupkg
+*.snupkg
+*.nuget.props
+*.nuget.targets
+project.lock.json
+project.assets.json
+appsettings.Development.json
+appsettings.Local.json
+
+# ==========================================
+# 📱 MOBILE (Flutter & Dart) [/mobile]
+# ==========================================
+# Archivos de compilación de Flutter y Dart
+.dart_tool/
+.flutter-plugins
+.flutter-plugins-dependencies
+.pub-cache/
+.pub/
+/build/
+ephemeral/
+
+# Dependencias descargadas
+/mobile/ios/Pods/
+/mobile/ios/Podfile.lock
+/mobile/ios/.symlinks/
+/mobile/android/.gradle/
+/mobile/android/captures/
+/mobile/android/gradle-app.setting
+
+# Certificados y Keys de Android/iOS (¡Nunca subirlos!)
+*.key
+*.keystore
+*.jks
+*.p12
+*.pem
+*.mobileprovision
+**/android/app/key.properties
+
+# Generados por Flutter / Android Studio
+*.dart_tool
+*.mode1v3
+*.mode2v3
+*.moved-aside
+*.pbxuser
+*.perspectivev3
+
+# ==========================================
+# 🌐 WEB (HTML / CSS / JS / Node) [/web]
+# ==========================================
+node_modules/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+.pnpm-debug.log*
+
+# Builds web / Cachés de bundlers (Vite, Webpack, etc.)
+/web/dist/
+/web/build/
+/web/.cache/
+
+# ==========================================
+# ☁️ INFRASTRUCTURE & AWS (DynamoDB/IaC) [/infrastructure]
+# ==========================================
+# Archivos temporales de Serverless, SAM o CDK
+.aws-sam/
+.cdk.staging/
+cdk.out/
+.serverless/
+.terraform/
+*.tfstate
+*.tfstate.backup
+
+# Archivos o datos locales de DynamoDB (DynamoDB Local)
+shared-local-instance.db
+*.db
