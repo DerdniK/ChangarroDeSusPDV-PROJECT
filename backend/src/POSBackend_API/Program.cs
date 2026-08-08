@@ -10,8 +10,10 @@ var connectionString = builder.Configuration.GetConnectionString("DefaultConnect
 builder.Services.AddDbContext<SupaDBContext>(options =>
     options.UseNpgsql(connectionString));
 
+builder.Services.AddAWSLambdaHosting(LambdaEventSource.HttpApi);
 
 builder.Services.AddScoped<IHealthService, HealthService>();
+
 builder.Services.AddControllers();
 
 var app = builder.Build();
