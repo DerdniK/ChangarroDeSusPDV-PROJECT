@@ -1,9 +1,10 @@
-using Amazon.DynamoDBv2.DataModel;
+// using Amazon.DynamoDBv2.DataModel;
+//TODO: CAMBIAR DEPENDENCIAS POR EF
 
 namespace POSBackend_API.Models
 {
     //? TODO: Cambiar por el nombre de la tabla en aws dynamodb
-    [DynamoDBTable("Roles")]
+    // [DynamoDBTable("Roles")]
     public class Role
     {
         public string Role_name {get; set;} = "Cajero";
