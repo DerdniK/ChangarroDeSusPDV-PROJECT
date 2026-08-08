@@ -1,4 +1,5 @@
-using Amazon.DynamoDBv2.DataModel;
+// using Amazon.DynamoDBv2.DataModel;
+//TODO: CAMBIAR DEPENDENCIAS POR EF
 using Microsoft.AspNetCore.Mvc;
 using POSBackend_API.Services;
 

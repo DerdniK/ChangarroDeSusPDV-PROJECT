@@ -1,0 +1,14 @@
+using Microsoft.EntityFrameworkCore;
+using POSBackend_API.Models;
+
+namespace POSBackend_API.Data
+{
+    public class SupaDBContext : DbContext
+    {
+        public SupaDBContext(DbContextOptions<SupaDBContext> options) : base(options) { } 
+        //^ "SupaDBContext" el nombre de la clase a la cual heredamos "DbContext"
+
+        public DbSet<DatabaseVersionModel> DatabaseVersion { get; set; } 
+        //& Aqui asignamos que el model de version es "DatabaseVersionModel" y se va a llamar "DatabaseVersion"
+    }
+}
