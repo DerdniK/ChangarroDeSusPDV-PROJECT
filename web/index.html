@@ -1,30 +1,43 @@
 <!DOCTYPE html>
 <html lang="es">
+
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Primera pagina</title>
-    <!-- Vinculamos el archivo CSS -->
-    <link rel="stylesheet" href="style.css">
+  <meta charset="UTF-8">
+  <link rel="stylesheet" href="style.css" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Sistema POS - Sprint 1</title>
+
 </head>
 <body>
 
-    <div class="login-card">
-        <h2>Bienvenido</h2>
-        <form action="#" method="POST">
-            <div class="top-table ">
-                <label for="titulos">"Que rollo con el pollo"</label>
-            </div>
-            
-            <div class="frists-cube">
-                <label for="versions">Versiones</label>
-                <!-- <input type="password" id="password" name="password" required placeholder="********"> -->
-                <output type="databases">"ni idea jsjssj"</output>
-            </div>
+  <main class="card">
+    <h1>¡Bienvenido al POS!</h1>
+    <p class="version-tag">Versión de BD: <span id="version">Cargando...</span></p>
+  </main>
 
-            <button type="refresh" class="recarga">Actualizar</button>
-        </form>
-    </div>
+  <script>
+    // URL del endpoint expuesto por tu equipo de backend
+    const API_URL = 'https://lvk5buixqe.execute-api.us-east-1.amazonaws.com/api/health';
+
+    async function obtenerVersionBD() {
+      const versionElemento = document.getElementById('version');
+      
+      try {
+        const respuesta = await fetch(API_URL);
+        if (!respuesta.ok) throw new Error('Error en la respuesta de la API');
+        
+        const datos = await respuesta.json();
+        // Insertamos el valor '1.0.0' traído de la tabla 'versions'
+        versionElemento.textContent = datos.version;
+      } catch (error) {
+        console.error('Error al consultar la versión:', error);
+        versionElemento.textContent = 'No disponible';
+      }
+    }
+
+    // Ejecutar la llamada al cargar la página
+    document.addEventListener('DOMContentLoaded', obtenerVersionBD);
+  </script>
 
 </body>
 </html>
