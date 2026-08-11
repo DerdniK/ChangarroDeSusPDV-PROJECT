@@ -3,7 +3,7 @@
 Interfaz web estática para el Sistema POS, conectada mediante Fetch API al backend serverless en AWS.
 http://machapoint-demo-01.s3-website.us-east-2.amazonaws.com/
 
-## 🏗️ Arquitectura y Despliegue en AWS S3
+## Arquitectura y Despliegue en AWS S3
 El frontend está alojado en **Amazon S3** utilizando la configuración de **Static Website Hosting**.
 
 ### Configuración del Bucket S3:
