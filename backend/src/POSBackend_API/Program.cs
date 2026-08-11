@@ -5,6 +5,16 @@ using POSBackend_API.Data;
 
 var builder = WebApplication.CreateBuilder(args);
 
+builder.Services.AddCors(options =>
+{
+    options.AddPolicy("AllowAll", policy =>
+    {
+        policy.AllowAnyOrigin()
+              .AllowAnyHeader()
+              .AllowAnyMethod();
+    });
+});
+
 var connectionString = builder.Configuration.GetConnectionString("DefaultConnection");
 
 builder.Services.AddDbContext<SupaDBContext>(options =>
@@ -18,6 +28,7 @@ builder.Services.AddControllers();
 
 var app = builder.Build();
 
+app.UseCors("AllowAll");
 app.MapControllers();
 
 
