@@ -16,7 +16,7 @@ jobs:
         uses: actions/github-script@v7
         env:
           PROJECT_OWNER: "DerdniK"      # Tu usuario u organización
-          PROJECT_NUMBER: 1            # Número de tu Project Board (de la URL)
+          PROJECT_NUMBER: 2            # Número de tu Project Board (de la URL)
         with:
           github-token: ${{ secrets.PROJECT_PAT }}
           script: |
