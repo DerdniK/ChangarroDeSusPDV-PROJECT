@@ -27,10 +27,10 @@ jobs:
             const projectOwner = process.env.PROJECT_OWNER;
             const projectNumber = parseInt(process.env.PROJECT_NUMBER);
 
-            // 1. Consultar GraphQL para identificar si es Sub-Issue ANTES de tocar el tablero
+            // 1. Consultar GraphQL para identificar si es Sub-Issue (Sintaxis corregida)
             const issueDetailsQuery = `
               query($owner: String!, $repo: String!, $number: Int!) {
-                repository(owner: String!, name: $repo) {
+                repository(owner: $owner, name: $repo) {
                   issue(number: $number) {
                     id
                     number
@@ -160,7 +160,7 @@ jobs:
 
               const parentQuery = `
                 query($owner: String!, $repo: String!, $number: Int!) {
-                  repository(owner: String!, name: $repo) {
+                  repository(owner: $owner, name: $repo) {
                     issue(number: $number) {
                       id
                       subIssues(first: 50) {
