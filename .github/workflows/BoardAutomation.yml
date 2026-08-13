@@ -17,7 +17,7 @@ jobs:
         env:
           # ⚙️ CONFIGURA TU USUARIO/ORGANIZACIÓN Y NÚMERO DE PROYECTO
           PROJECT_OWNER: "DerdniK"      # Tu usuario u organización
-          PROJECT_NUMBER: 2            # El número de tu Project Board (de la URL)
+          PROJECT_NUMBER: 1            # El número de tu Project Board (de la URL)
         with:
           github-token: ${{ secrets.PROJECT_PAT }}
           script: |
@@ -28,7 +28,7 @@ jobs:
             const projectOwner = process.env.PROJECT_OWNER;
             const projectNumber = parseInt(process.env.PROJECT_NUMBER);
 
-            // 1. Consultar GraphQL para obtener la jerarquía real del Issue
+            // 1. Consultar GraphQL para obtener la jerarquía del Issue
             const issueDetailsQuery = `
               query($owner: String!, $repo: String!, $number: Int!) {
                 repository(owner: $owner, name: $repo) {
@@ -112,16 +112,16 @@ jobs:
               return;
             }
 
-            // 4. Agregar/Actualizar ítem en el proyecto
+            // 4. Agregar/Actualizar ítem en el proyecto (Mutación Corregida)
             const addMutation = `
               mutation($projectId: ID!, $contentId: ID!) {
-                addProjectV2ItemByComponent(input: {projectId: $projectId, contentId: $contentId}) {
+                addProjectV2ItemById(input: {projectId: $projectId, contentId: $contentId}) {
                   item { id }
                 }
               }
             `;
             const addRes = await github.graphql(addMutation, { projectId: project.id, contentId: currentIssue.id });
-            const itemId = addRes.addProjectV2ItemByComponent.item.id;
+            const itemId = addRes.addProjectV2ItemById.item.id;
 
             const updateMutation = `
               mutation($projectId: ID!, $itemId: ID!, $fieldId: ID!, $optionId: String!) {
@@ -145,7 +145,7 @@ jobs:
 
             console.log(`✅ Issue #${issueNumber} movida a '${targetStatus}'.`);
 
-            // 5. 🎯 LÓGICA 100%: Si se cerró una Sub-Issue, verificar si el Padre ya completó todas sus Sub-Issues
+            // 5. LÓGICA 100%: Si se cerró una Sub-Issue, verificar si el Padre ya completó todas sus Sub-Issues
             if (isSubIssue && action === "closed") {
               const parentNumber = currentIssue.parent.number;
               console.log(`🔍 Verificando Sub-Issues restantes del Padre #${parentNumber}...`);
@@ -187,12 +187,12 @@ jobs:
                 const parentDoneOption = statusField.options.find(o => o.name === "Issues Done");
                 if (parentDoneOption) {
                   const parentAddRes = await github.graphql(addMutation, { projectId: project.id, contentId: parentIssue.id });
-                  const parentItemId = parentAddRes.addProjectV2ItemByComponent.item.id;
+                  const parentItemId = parentAddRes.addProjectV2ItemById.item.id;
 
                   await github.graphql(updateMutation, {
                     projectId: project.id,
                     itemId: parentItemId,
-                    fieldId: statusField.id,
+                    fieldId: parentDoneOption.id ? statusField.id : statusField.id,
                     optionId: parentDoneOption.id
                   });
 
