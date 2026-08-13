@@ -1,64 +1,75 @@
-name: Sub-Issues Project Board Automation
+name: Complete Board Automation (Issues, Sub-Issues & Auto-Close)
 
 on:
   issues:
     types: [opened, closed, reopened]
 
+permissions:
+  issues: write
+  contents: read
+
 jobs:
-  manage-sub-issues:
+  automate-board:
     runs-on: ubuntu-latest
     steps:
-      - name: Actualizar estado en GitHub Projects
+      - name: Procesar tablero y reglas de Sub-Issues
         uses: actions/github-script@v7
         env:
-          # ⚙️ CONFIGURA AQUÍ TU USUARIO/ORGANIZACIÓN Y NÚMERO DE PROYECTO
-          PROJECT_OWNER: "DerdniK"      # Tu usuario u organización en GitHub
-          PROJECT_NUMBER: 2            # Número de tu Project Board (sale en la URL)
+          # ⚙️ CONFIGURA TU USUARIO/ORGANIZACIÓN Y NÚMERO DE PROYECTO
+          PROJECT_OWNER: "DerdniK"      # Tu usuario u organización
+          PROJECT_NUMBER: 2            # El número de tu Project Board (de la URL)
         with:
-          # Requiere un Personal Access Token (PAT) con permisos 'project' guardado en Secrets
           github-token: ${{ secrets.PROJECT_PAT }}
           script: |
-            const issue = context.payload.issue;
+            const owner = context.repo.owner;
+            const repo = context.repo.repo;
+            const issueNumber = context.payload.issue.number;
             const action = context.payload.action;
-
-            // 1. Verificar si el issue es una Sub-Issue
-            // Detecta si tiene un issue padre asociado o la etiqueta 'sub-issue'
-            const isSubIssue = issue.parent_issue_url || 
-                               (issue.labels && issue.labels.some(l => l.name.toLowerCase().includes('sub-issue')));
-
-            if (!isSubIssue) {
-              console.log(`El issue #${issue.number} es un Issue principal. Se omite de esta automatización.`);
-              return;
-            }
-
-            // 2. Determinar la columna/estado destino según el evento
-            let targetStatus = "";
-            if (action === "opened" || action === "reopened") {
-              targetStatus = "ToDo Sub-Issues";
-            } else if (action === "closed") {
-              targetStatus = "Sub-Issues Done";
-            }
-
-            console.log(`Procesando Sub-Issue #${issue.number} (${action}) -> Moviendo a: '${targetStatus}'`);
-
-            const owner = process.env.PROJECT_OWNER;
+            const projectOwner = process.env.PROJECT_OWNER;
             const projectNumber = parseInt(process.env.PROJECT_NUMBER);
 
-            // 3. Obtener los IDs del Proyecto y sus campos mediante GraphQL
+            // 1. Consultar GraphQL para obtener la jerarquía real del Issue
+            const issueDetailsQuery = `
+              query($owner: String!, $repo: String!, $number: Int!) {
+                repository(owner: $owner, name: $repo) {
+                  issue(number: $number) {
+                    id
+                    number
+                    parent {
+                      id
+                      number
+                    }
+                  }
+                }
+              }
+            `;
+
+            const issueRes = await github.graphql(issueDetailsQuery, { owner, repo, number: issueNumber });
+            const currentIssue = issueRes.repository.issue;
+            const isSubIssue = !!currentIssue.parent;
+
+            // 2. Determinar la columna de destino
+            let targetStatus = "";
+            if (isSubIssue) {
+              targetStatus = (action === "closed") ? "Sub-Issues Done" : "ToDo Sub-Issues";
+            } else {
+              targetStatus = (action === "closed") ? "Issues Done" : "ToDo Issues";
+            }
+
+            console.log(`📌 Issue #${issueNumber} | Es Sub-Issue: ${isSubIssue} | Evento: ${action} -> Moviendo a '${targetStatus}'`);
+
+            // 3. Obtener el Proyecto en GitHub Projects V2
             const projectQuery = `
               query($owner: String!, $number: Int!) {
                 user(login: $owner) {
                   projectV2(number: $number) {
                     id
-                    fields(first: 20) {
+                    fields(first: 30) {
                       nodes {
                         ... on ProjectV2SingleSelectField {
                           id
                           name
-                          options {
-                            id
-                            name
-                          }
+                          options { id name }
                         }
                       }
                     }
@@ -67,17 +78,41 @@ jobs:
               }
             `;
 
-            const projectRes = await github.graphql(projectQuery, { owner, number: projectNumber });
-            const project = projectRes.user.projectV2;
+            let projectRes;
+            try {
+              projectRes = await github.graphql(projectQuery, { owner: projectOwner, number: projectNumber });
+            } catch(e) {
+              const orgQuery = `
+                query($owner: String!, $number: Int!) {
+                  organization(login: $owner) {
+                    projectV2(number: $number) {
+                      id
+                      fields(first: 30) {
+                        nodes {
+                          ... on ProjectV2SingleSelectField {
+                            id
+                            name
+                            options { id name }
+                          }
+                        }
+                      }
+                    }
+                  }
+                }
+              `;
+              projectRes = await github.graphql(orgQuery, { owner: projectOwner, number: projectNumber });
+            }
+
+            const project = projectRes.user ? projectRes.user.projectV2 : projectRes.organization.projectV2;
             const statusField = project.fields.nodes.find(f => f.name === "Status");
             const statusOption = statusField ? statusField.options.find(o => o.name === targetStatus) : null;
 
             if (!statusField || !statusOption) {
-              console.error(`No se encontró el campo 'Status' o la opción '${targetStatus}' en el proyecto.`);
+              console.error(`❌ No se encontró el campo 'Status' o la opción '${targetStatus}'. Revisa los nombres de las columnas.`);
               return;
             }
 
-            // 4. Agregar la Sub-Issue al Proyecto V2
+            // 4. Agregar/Actualizar ítem en el proyecto
             const addMutation = `
               mutation($projectId: ID!, $contentId: ID!) {
                 addProjectV2ItemByComponent(input: {projectId: $projectId, contentId: $contentId}) {
@@ -85,15 +120,9 @@ jobs:
                 }
               }
             `;
-
-            const addRes = await github.graphql(addMutation, {
-              projectId: project.id,
-              contentId: issue.node_id
-            });
-
+            const addRes = await github.graphql(addMutation, { projectId: project.id, contentId: currentIssue.id });
             const itemId = addRes.addProjectV2ItemByComponent.item.id;
 
-            // 5. Actualizar la columna Status a 'ToDo Sub-Issues' o 'Sub-Issues Done'
             const updateMutation = `
               mutation($projectId: ID!, $itemId: ID!, $fieldId: ID!, $optionId: String!) {
                 updateProjectV2ItemFieldValue(input: {
@@ -114,4 +143,62 @@ jobs:
               optionId: statusOption.id
             });
 
-            console.log(`✅ Sub-Issue #${issue.number} movida exitosamente a '${targetStatus}'.`);
+            console.log(`✅ Issue #${issueNumber} movida a '${targetStatus}'.`);
+
+            // 5. 🎯 LÓGICA 100%: Si se cerró una Sub-Issue, verificar si el Padre ya completó todas sus Sub-Issues
+            if (isSubIssue && action === "closed") {
+              const parentNumber = currentIssue.parent.number;
+              console.log(`🔍 Verificando Sub-Issues restantes del Padre #${parentNumber}...`);
+
+              const parentQuery = `
+                query($owner: String!, $repo: String!, $number: Int!) {
+                  repository(owner: $owner, name: $repo) {
+                    issue(number: $number) {
+                      id
+                      subIssues(first: 50) {
+                        nodes {
+                          number
+                          state
+                        }
+                      }
+                    }
+                  }
+                }
+              `;
+
+              const parentRes = await github.graphql(parentQuery, { owner, repo, number: parentNumber });
+              const parentIssue = parentRes.repository.issue;
+              const subIssues = parentIssue.subIssues.nodes;
+
+              const allClosed = subIssues.length > 0 && subIssues.every(sub => sub.state === "CLOSED");
+
+              if (allClosed) {
+                console.log(`🎉 ¡Todas las Sub-Issues de #${parentNumber} están cerradas (100%)! Cerrando Issue Padre...`);
+
+                // A. Cerrar el Issue Padre
+                await github.rest.issues.update({
+                  owner,
+                  repo,
+                  issue_number: parentNumber,
+                  state: 'closed'
+                });
+
+                // B. Mover el Issue Padre a 'Issues Done' en el tablero
+                const parentDoneOption = statusField.options.find(o => o.name === "Issues Done");
+                if (parentDoneOption) {
+                  const parentAddRes = await github.graphql(addMutation, { projectId: project.id, contentId: parentIssue.id });
+                  const parentItemId = parentAddRes.addProjectV2ItemByComponent.item.id;
+
+                  await github.graphql(updateMutation, {
+                    projectId: project.id,
+                    itemId: parentItemId,
+                    fieldId: statusField.id,
+                    optionId: parentDoneOption.id
+                  });
+
+                  console.log(`✅ Issue Padre #${parentNumber} cerrado automáticamente y movido a 'Issues Done'.`);
+                }
+              } else {
+                console.log(`El Issue Padre #${parentNumber} aún tiene tareas pendientes.`);
+              }
+            }
