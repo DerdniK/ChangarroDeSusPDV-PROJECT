@@ -103,22 +103,24 @@ jobs:
             }
 
             const project = projectRes.user ? projectRes.user.projectV2 : projectRes.organization.projectV2;
-            const statusField = project.fields.nodes.find(f => f.name.toLowerCase() === "status");
+            
+            // Función segura de normalización
+            const normalize = (text) => (text || "").toString().toLowerCase().replace(/[^a-z0-9]/g, "");
+            
+            // Buscar el campo 'Status' de forma segura
+            const statusField = project.fields.nodes.find(f => f?.name && normalize(f.name) === "status");
 
-            if (!statusField) {
-              console.error("❌ No se encontró el campo 'Status' en el proyecto.");
+            if (!statusField || !statusField.options) {
+              console.error("❌ No se encontró el campo 'Status' con opciones válidas en el proyecto.");
               return;
             }
 
-            // Normalizador de texto para comparar sin importar espacios, guiones ni mayúsculas
-            const normalize = (text) => text.toLowerCase().replace(/[^a-z0-0]/g, "");
             const normalizedTarget = normalize(targetStatus);
-
-            const statusOption = statusField.options.find(o => normalize(o.name) === normalizedTarget);
+            const statusOption = statusField.options.find(o => o?.name && normalize(o.name) === normalizedTarget);
 
             if (!statusOption) {
               console.error(`❌ No se encontró la opción '${targetStatus}'. Las opciones disponibles en tu columna Status son:`);
-              statusField.options.forEach(o => console.log(`   - "${o.name}"`));
+              statusField.options.forEach(o => o?.name && console.log(`   - "${o.name}"`));
               return;
             }
 
@@ -178,7 +180,7 @@ jobs:
 
               const parentRes = await github.graphql(parentQuery, { owner, repo, number: parentNumber });
               const parentIssue = parentRes.repository.issue;
-              const subIssues = parentIssue.subIssues.nodes;
+              const subIssues = parentIssue.subIssues?.nodes || [];
 
               const allClosed = subIssues.length > 0 && subIssues.every(sub => sub.state === "CLOSED");
 
@@ -195,7 +197,7 @@ jobs:
 
                 // B. Mover el Issue Padre a 'Issues Done'
                 const parentDoneTarget = normalize("Issues Done");
-                const parentDoneOption = statusField.options.find(o => normalize(o.name) === parentDoneTarget);
+                const parentDoneOption = statusField.options.find(o => o?.name && normalize(o.name) === parentDoneTarget);
 
                 if (parentDoneOption) {
                   const parentAddRes = await github.graphql(addMutation, { projectId: project.id, contentId: parentIssue.id });
