@@ -15,9 +15,8 @@ jobs:
       - name: Procesar tablero y reglas de Sub-Issues
         uses: actions/github-script@v7
         env:
-          # ⚙️ CONFIGURA TU USUARIO/ORGANIZACIÓN Y NÚMERO DE PROYECTO
           PROJECT_OWNER: "DerdniK"      # Tu usuario u organización
-          PROJECT_NUMBER: 1            # El número de tu Project Board (de la URL)
+          PROJECT_NUMBER: 1            # Número de tu Project Board (de la URL)
         with:
           github-token: ${{ secrets.PROJECT_PAT }}
           script: |
@@ -104,15 +103,26 @@ jobs:
             }
 
             const project = projectRes.user ? projectRes.user.projectV2 : projectRes.organization.projectV2;
-            const statusField = project.fields.nodes.find(f => f.name === "Status");
-            const statusOption = statusField ? statusField.options.find(o => o.name === targetStatus) : null;
+            const statusField = project.fields.nodes.find(f => f.name.toLowerCase() === "status");
 
-            if (!statusField || !statusOption) {
-              console.error(`❌ No se encontró el campo 'Status' o la opción '${targetStatus}'. Revisa los nombres de las columnas.`);
+            if (!statusField) {
+              console.error("❌ No se encontró el campo 'Status' en el proyecto.");
               return;
             }
 
-            // 4. Agregar/Actualizar ítem en el proyecto (Mutación Corregida)
+            // Normalizador de texto para comparar sin importar espacios, guiones ni mayúsculas
+            const normalize = (text) => text.toLowerCase().replace(/[^a-z0-0]/g, "");
+            const normalizedTarget = normalize(targetStatus);
+
+            const statusOption = statusField.options.find(o => normalize(o.name) === normalizedTarget);
+
+            if (!statusOption) {
+              console.error(`❌ No se encontró la opción '${targetStatus}'. Las opciones disponibles en tu columna Status son:`);
+              statusField.options.forEach(o => console.log(`   - "${o.name}"`));
+              return;
+            }
+
+            // 4. Agregar/Actualizar ítem en el proyecto
             const addMutation = `
               mutation($projectId: ID!, $contentId: ID!) {
                 addProjectV2ItemById(input: {projectId: $projectId, contentId: $contentId}) {
@@ -143,9 +153,9 @@ jobs:
               optionId: statusOption.id
             });
 
-            console.log(`✅ Issue #${issueNumber} movida a '${targetStatus}'.`);
+            console.log(`✅ Issue #${issueNumber} movida con éxito a '${statusOption.name}'.`);
 
-            // 5. LÓGICA 100%: Si se cerró una Sub-Issue, verificar si el Padre ya completó todas sus Sub-Issues
+            // 5. LÓGICA 100%: Si se cerró una Sub-Issue, verificar si el Padre completó todas sus Sub-Issues
             if (isSubIssue && action === "closed") {
               const parentNumber = currentIssue.parent.number;
               console.log(`🔍 Verificando Sub-Issues restantes del Padre #${parentNumber}...`);
@@ -183,8 +193,10 @@ jobs:
                   state: 'closed'
                 });
 
-                // B. Mover el Issue Padre a 'Issues Done' en el tablero
-                const parentDoneOption = statusField.options.find(o => o.name === "Issues Done");
+                // B. Mover el Issue Padre a 'Issues Done'
+                const parentDoneTarget = normalize("Issues Done");
+                const parentDoneOption = statusField.options.find(o => normalize(o.name) === parentDoneTarget);
+
                 if (parentDoneOption) {
                   const parentAddRes = await github.graphql(addMutation, { projectId: project.id, contentId: parentIssue.id });
                   const parentItemId = parentAddRes.addProjectV2ItemById.item.id;
@@ -192,11 +204,11 @@ jobs:
                   await github.graphql(updateMutation, {
                     projectId: project.id,
                     itemId: parentItemId,
-                    fieldId: parentDoneOption.id ? statusField.id : statusField.id,
+                    fieldId: statusField.id,
                     optionId: parentDoneOption.id
                   });
 
-                  console.log(`✅ Issue Padre #${parentNumber} cerrado automáticamente y movido a 'Issues Done'.`);
+                  console.log(`✅ Issue Padre #${parentNumber} cerrado automáticamente y movido a '${parentDoneOption.name}'.`);
                 }
               } else {
                 console.log(`El Issue Padre #${parentNumber} aún tiene tareas pendientes.`);
