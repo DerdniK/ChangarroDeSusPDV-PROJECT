@@ -2,7 +2,8 @@ name: Complete Board Automation (Issues, Sub-Issues & Auto-Close)
 
 on:
   issues:
-    types: [opened, closed, reopened]
+    types: [opened, closed, reopened, edited]
+  workflow_dispatch:
 
 permissions:
   issues: write
@@ -27,7 +28,9 @@ jobs:
             const projectOwner = process.env.PROJECT_OWNER;
             const projectNumber = parseInt(process.env.PROJECT_NUMBER);
 
-            // 1. Consultar GraphQL para identificar si es Sub-Issue (Sintaxis corregida)
+            const normalize = (text) => (text || "").toString().toLowerCase().replace(/[^a-z0-9]/g, "");
+
+            // 1. Consultar GraphQL para identificar si es Sub-Issue
             const issueDetailsQuery = `
               query($owner: String!, $repo: String!, $number: Int!) {
                 repository(owner: $owner, name: $repo) {
@@ -47,17 +50,7 @@ jobs:
             const currentIssue = issueRes.repository.issue;
             const isSubIssue = !!currentIssue.parent;
 
-            // 2. Determinar la columna de destino directa
-            let targetStatus = "";
-            if (isSubIssue) {
-              targetStatus = (action === "closed") ? "Sub-Issues Done" : "ToDo Sub-Issues";
-            } else {
-              targetStatus = (action === "closed") ? "Issues Done" : "ToDo Issues";
-            }
-
-            console.log(`📌 Issue #${issueNumber} | Es Sub-Issue: ${isSubIssue} | Evento: ${action} -> Asignando directamente a: '${targetStatus}'`);
-
-            // 3. Obtener el Proyecto en GitHub Projects V2
+            // 2. Obtener el Proyecto en GitHub Projects V2
             const projectQuery = `
               query($owner: String!, $number: Int!) {
                 user(login: $owner) {
@@ -103,24 +96,16 @@ jobs:
             }
 
             const project = projectRes.user ? projectRes.user.projectV2 : projectRes.organization.projectV2;
-            const normalize = (text) => (text || "").toString().toLowerCase().replace(/[^a-z0-9]/g, "");
-            
             const statusField = project.fields.nodes.find(f => f?.name && normalize(f.name) === "status");
 
             if (!statusField || !statusField.options) {
-              console.error("❌ No se encontró el campo 'Status' con opciones válidas en el proyecto.");
+              console.error("❌ No se encontró el campo 'Status' con opciones válidas.");
               return;
             }
 
-            const normalizedTarget = normalize(targetStatus);
-            const statusOption = statusField.options.find(o => o?.name && normalize(o.name) === normalizedTarget);
+            const getOption = (colName) => statusField.options.find(o => o?.name && normalize(o.name) === normalize(colName));
 
-            if (!statusOption) {
-              console.error(`❌ No se encontró la opción '${targetStatus}'.`);
-              return;
-            }
-
-            // 4. Agregar ítem y asignar SU ESTADO FINAL en un solo paso
+            // Mutaciones GraphQL
             const addMutation = `
               mutation($projectId: ID!, $contentId: ID!) {
                 addProjectV2ItemById(input: {projectId: $projectId, contentId: $contentId}) {
@@ -128,8 +113,6 @@ jobs:
                 }
               }
             `;
-            const addRes = await github.graphql(addMutation, { projectId: project.id, contentId: currentIssue.id });
-            const itemId = addRes.addProjectV2ItemById.item.id;
 
             const updateMutation = `
               mutation($projectId: ID!, $itemId: ID!, $fieldId: ID!, $optionId: String!) {
@@ -144,67 +127,90 @@ jobs:
               }
             `;
 
-            await github.graphql(updateMutation, {
-              projectId: project.id,
-              itemId: itemId,
-              fieldId: statusField.id,
-              optionId: statusOption.id
-            });
+            const moveItem = async (contentId, columnName) => {
+              const option = getOption(columnName);
+              if (!option) {
+                console.error(`❌ No existe la columna '${columnName}'`);
+                return;
+              }
+              const addRes = await github.graphql(addMutation, { projectId: project.id, contentId });
+              const itemId = addRes.addProjectV2ItemById.item.id;
 
-            console.log(`✅ Issue #${issueNumber} enviada directamente a '${statusOption.name}'.`);
+              await github.graphql(updateMutation, {
+                projectId: project.id,
+                itemId,
+                fieldId: statusField.id,
+                optionId: option.id
+              });
+              console.log(`✅ Movido a '${option.name}'.`);
+            };
 
-            // 5. LÓGICA 100%: Auto-Cierre de Padre si se completan todas las Sub-Issues
-            if (isSubIssue && action === "closed") {
-              const parentNumber = currentIssue.parent.number;
-              console.log(`🔍 Verificando Sub-Issues restantes del Padre #${parentNumber}...`);
+            // 3. Determinar columna según jerarquía
+            if (isSubIssue) {
+              if (action === "closed") {
+                await moveItem(currentIssue.id, "Sub-Issues Done");
 
-              const parentQuery = `
-                query($owner: String!, $repo: String!, $number: Int!) {
-                  repository(owner: $owner, name: $repo) {
-                    issue(number: $number) {
-                      id
-                      subIssues(first: 50) {
-                        nodes {
-                          number
-                          state
+                // Lógica de 100% de auto-cierre
+                const parentNumber = currentIssue.parent.number;
+                const parentQuery = `
+                  query($owner: String!, $repo: String!, $number: Int!) {
+                    repository(owner: $owner, name: $repo) {
+                      issue(number: $number) {
+                        id
+                        subIssues(first: 50) {
+                          nodes { number state }
                         }
                       }
                     }
                   }
+                `;
+                const parentRes = await github.graphql(parentQuery, { owner, repo, number: parentNumber });
+                const parentIssue = parentRes.repository.issue;
+                const subIssues = parentIssue.subIssues?.nodes || [];
+
+                const allClosed = subIssues.length > 0 && subIssues.every(s => s.state === "CLOSED");
+                if (allClosed) {
+                  console.log(`🎉 ¡Padre #${parentNumber} completado al 100%! Cerrando...`);
+                  await github.rest.issues.update({ owner, repo, issue_number: parentNumber, state: 'closed' });
+                  await moveItem(parentIssue.id, "Issues Done");
                 }
-              `;
+              } else {
+                // Consultar estado actual del Padre
+                const parentNumber = currentIssue.parent.number;
+                let targetCol = "Project Sub-Issues";
 
-              const parentRes = await github.graphql(parentQuery, { owner, repo, number: parentNumber });
-              const parentIssue = parentRes.repository.issue;
-              const subIssues = parentIssue.subIssues?.nodes || [];
+                const parentItemQuery = `
+                  query($owner: String!, $repo: String!, $number: Int!) {
+                    repository(owner: $owner, name: $repo) {
+                      issue(number: $number) {
+                        projectItems(first: 5) {
+                          nodes {
+                            fieldValueByName(name: "Status") {
+                              ... on ProjectV2ItemFieldSingleSelectValue {
+                                name
+                              }
+                            }
+                          }
+                        }
+                      }
+                    }
+                  }
+                `;
+                const pRes = await github.graphql(parentItemQuery, { owner, repo, number: parentNumber });
+                const pItem = pRes.repository.issue.projectItems?.nodes?.[0];
+                const pStatus = pItem?.fieldValueByName?.name;
 
-              const allClosed = subIssues.length > 0 && subIssues.every(sub => sub.state === "CLOSED");
-
-              if (allClosed) {
-                console.log(`🎉 ¡Todas las Sub-Issues de #${parentNumber} están cerradas! Cerrando Issue Padre...`);
-
-                await github.rest.issues.update({
-                  owner,
-                  repo,
-                  issue_number: parentNumber,
-                  state: 'closed'
-                });
-
-                const parentDoneTarget = normalize("Issues Done");
-                const parentDoneOption = statusField.options.find(o => o?.name && normalize(o.name) === parentDoneTarget);
-
-                if (parentDoneOption) {
-                  const parentAddRes = await github.graphql(addMutation, { projectId: project.id, contentId: parentIssue.id });
-                  const parentItemId = parentAddRes.addProjectV2ItemById.item.id;
-
-                  await github.graphql(updateMutation, {
-                    projectId: project.id,
-                    itemId: parentItemId,
-                    fieldId: statusField.id,
-                    optionId: parentDoneOption.id
-                  });
-
-                  console.log(`✅ Issue Padre #${parentNumber} movido automáticamente a '${parentDoneOption.name}'.`);
+                if (pStatus && normalize(pStatus) === normalize("ToDo Issues")) {
+                  targetCol = "ToDo Sub-Issues";
                 }
+
+                await moveItem(currentIssue.id, targetCol);
+              }
+            } else {
+              // Issue Principal
+              if (action === "closed") {
+                await moveItem(currentIssue.id, "Issues Done");
+              } else {
+                await moveItem(currentIssue.id, "Project Issues");
               }
             }
