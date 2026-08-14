@@ -1,4 +1,4 @@
-namespace POSBackend_API.Dtos
+namespace POSBackend_API.Dtos.Health
 {
     public class HealthResponseDto
     {

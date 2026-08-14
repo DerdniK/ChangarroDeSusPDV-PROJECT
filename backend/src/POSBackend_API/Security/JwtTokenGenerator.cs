@@ -4,7 +4,7 @@ using System.Text;
 using Microsoft.IdentityModel.Tokens;
 using POSBackend_API.Models;
 
-namespace POSBackend_API.Services;
+namespace POSBackend_API.Security;
 
 public class JwtTokenGenerator
 {
@@ -22,10 +22,10 @@ public class JwtTokenGenerator
 
         var claims = new[] //? Son datos que viajan en el JWT sin necesidad de claves
         {
-            new Claim(JwtRegisteredClaimNames.Sub, User.UserId.ToString()), //? A quien le pertenece el token
-            new Claim("User_FirstName", User.First_name),
-            new Claim("User_LastName", User.Last_name),
-            new Claim("roleId", User.RoleID) //? Guarda el identificador de rol
+            new Claim(JwtRegisteredClaimNames.Sub, user.UserId.ToString()), //? A quien le pertenece el token
+            new Claim("User_FirstName", user.First_name ?? ""),
+            new Claim("User_LastName", user.Last_name ?? ""),
+            new Claim("roleId", user.RoleID.ToString() ?? "") //? Guarda el identificador de rol
         };
 
         var key = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(secretKey));
