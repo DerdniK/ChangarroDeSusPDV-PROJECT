@@ -1,34 +1,32 @@
-// using Amazon.DynamoDBv2.DataModel;
-//TODO: CAMBIAR DEPENDENCIAS POR EF
+using System.ComponentModel.DataAnnotations;
+using System.ComponentModel.DataAnnotations.Schema;
 using Microsoft.AspNetCore.Identity;
 
 namespace POSBackend_API.Models
 {
-    //? TODO: Cambiar por el nombre de la tabla en aws dynamodb
-    // [DynamoDBTable("Users")]
+    [Table("users")]
     public class User
     {
-        // [DynamoDBHashKey] //! Es la primary key de dynamo, es irrepetible, no se usa Id pq es mas tardado
-        public string Username {get; set;} = string.Empty;
+        [Key]
+        [Column ("userid")]
+        public Guid UserId {get; set;} = Guid.NewGuid();
 
-        // [DynamoDBProperty]
-        public static Guid UserId {get; set;} = Guid.NewGuid();
+        [Column ("password")]
+        public string PasswordHash {get; set;} = string.Empty;
 
-        // [DynamoDBProperty]
-        public string Password {get; set;} = string.Empty;
+        [Column ("firstname")]
+        public string First_name {get; set;} = string.Empty;
 
-        // [DynamoDBProperty]
-        public static string First_name {get; set;} = string.Empty;
+        [Column ("lastname")]
+        public string Last_name{get; set;} = string.Empty;
 
-        // [DynamoDBProperty]
-        public static string Last_name{get; set;} = string.Empty;
+        [Column ("roleid")]
+        public int RoleID {get; set;}
 
-        // [DynamoDBProperty]
-        public static string RoleID {get; set;} = string.Empty;
-
-        // [DynamoDBProperty]
+        [Column ("created_at")]
         public DateTime CreatedAt {get; set;} = DateTime.UtcNow;
-        
 
+        [Column ("username")]
+        public string Username {get; set;} = string.Empty;
     }
 }

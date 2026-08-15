@@ -3,7 +3,7 @@ using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.IdentityModel.Tokens;
 using POSBackend_API.Data;
-using POSBackend_API.Dtos;
+using POSBackend_API.Dtos.Health;
 
 namespace POSBackend_API.Controllers
 {

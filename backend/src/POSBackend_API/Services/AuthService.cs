@@ -1,31 +1,65 @@
-// using Amazon.DynamoDBv2.DataModel;
-//TODO: CAMBIAR DEPENDENCIAS POR EF
 using Microsoft.AspNetCore.Http.HttpResults;
+using Microsoft.AspNetCore.Mvc;
+using Microsoft.EntityFrameworkCore;
+using POSBackend_API.Data;
 using POSBackend_API.Dtos;
+using POSBackend_API.Security;
 
 namespace POSBackend_API.Services
 {
     public class AuthService : IAuthService
     {
-        // private readonly IDynamoDBContext _dynamoDbContext;
-        // private readonly JwtTokenGenerator _jwtTokenGenerator;
+        private readonly SupaDBContext _context;
+        private readonly JwtTokenGenerator _jwtTokenGenerator;
 
-        // public AuthService(IDynamoDBContext dynamoDbContext, JwtTokenGenerator jwtTokenGenerator) //? Inyeccion de dependencias, dynamo y jwt
-        // {
-        //     _dynamoDbContext = dynamoDbContext;
-        //     _jwtTokenGenerator = jwtTokenGenerator;
-        // }
-
-        public async Task<RegisterResponseDto> RegisterAsync(RegisterRequestDto dto)
+        public AuthService(SupaDBContext context, JwtTokenGenerator jwtTokenGenerator) //? Inyeccion de dependencias, dynamo y jwt
         {
-            //TODO: Implementar la logica de negocios para registrar un usuario y devolver el response
-            return new RegisterResponseDto();
+            _context = context;
+            _jwtTokenGenerator = jwtTokenGenerator;
         }
 
-        public async Task<LoginResponseDto> LoginAsync(LoginRequestDto dto)
+
+        public async Task<LoginResponseDto> LoginAsync(LoginRequestDto credentials)
         {
-            //TODO: Implementar la logica de negocios para registrar un usuario y devolver el response
-            return new LoginResponseDto();
+            var user = await _context.UserTable //^ Esto trae el username
+            .AsNoTracking()
+            .FirstOrDefaultAsync(x => x.Username == credentials.Username);
+
+            if(credentials.Password == "")
+            {
+                return new LoginResponseDto
+            {
+                Success = false,
+                Message = "You don't introduce a password"
+            };
+            }else if(credentials.Username == "")
+            {
+                return new LoginResponseDto
+            {
+                Success = false,
+                Message = "You don't introduce a username"
+            };
+            }else if (user is null || !BCrypt.Net.BCrypt.Verify(credentials.Password, user.PasswordHash))
+            {
+                return new LoginResponseDto
+            {
+                Success = false,
+                Message = "Wrong credentials"
+            };
+            }
+
+
+            string token = _jwtTokenGenerator.GenerateToken(user);
+
+            return new LoginResponseDto
+            {
+                Success = true,
+                Message = "Login succesfull!",
+                AuthData = new AuthResponseDto
+                {
+                    Token = token
+                }
+            };
         }
     }
 }
