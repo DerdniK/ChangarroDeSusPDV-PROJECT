@@ -1,0 +1,32 @@
+using Microsoft.EntityFrameworkCore;
+using POSBackend_API.Data;
+using POSBackend_API.Dtos;
+
+namespace POSBackend_API.Services
+{
+    public class ProductService : IProductService
+    {
+        private readonly SupaDBContext _context;
+        
+        public ProductService(SupaDBContext context)
+        {
+            _context = context;
+        }
+
+        
+        public async Task<IEnumerable<GetAllProductsResponseDto>> GetAllProductsAsync()
+        {
+            
+            return await _context.ProductsTable.AsNoTracking()
+            .Select(p => new GetAllProductsResponseDto
+            {
+                Productid = p.Productid,
+                Name = p.Name,
+                SKU = p.SKU,
+                Typeid = p.Typeid,
+                Price = p.Price, 
+                ImageURL = p.ImageURL ?? "https://images.vexels.com/media/users/3/144131/isolated/preview/29576a7e0442960346703d3ecd6bac04-icono-de-doodle-de-imagen.png"
+            }).ToListAsync();
+        }
+    }
+}
