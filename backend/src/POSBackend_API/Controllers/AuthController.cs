@@ -14,13 +14,11 @@ namespace POSBackend_API.Controllers
     public class AuthController : ControllerBase
     {
         private readonly IAuthService _authService;
-        private readonly SupaDBContext _context; 
 
     // La recibe aquí
-        public AuthController(IAuthService authService, SupaDBContext context) //? Inyeccion de dependencias del servicio 
+        public AuthController(IAuthService authService) //? Inyeccion de dependencias del servicio 
         {
             _authService = authService;
-            _context = context;
         }
 
         [HttpPost]
