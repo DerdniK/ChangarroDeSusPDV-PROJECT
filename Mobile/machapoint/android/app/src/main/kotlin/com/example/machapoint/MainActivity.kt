@@ -1,4 +1,4 @@
-package com.example.machapoint
+package com.machapoint
 
 import io.flutter.embedding.android.FlutterActivity
 
