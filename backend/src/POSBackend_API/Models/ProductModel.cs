@@ -16,8 +16,8 @@ namespace POSBackend_API.Models
         [Column("sku")]
         public string SKU{get; set;}
 
-        [Column("typeid")]
-        public int Typeid{get; set;}
+        [ForeignKey("typeid")]
+        public ProductTypes ProductTypes {get; set;}
 
         [Column("price")]
         public double Price{get; set;}

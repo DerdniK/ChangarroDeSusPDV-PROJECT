@@ -1,6 +1,7 @@
 using Microsoft.EntityFrameworkCore;
 using POSBackend_API.Data;
 using POSBackend_API.Dtos;
+using POSBackend_API.Models;
 
 namespace POSBackend_API.Services
 {
@@ -23,7 +24,10 @@ namespace POSBackend_API.Services
                 Productid = p.Productid,
                 Name = p.Name,
                 SKU = p.SKU,
-                Typeid = p.Typeid,
+                Type = new ProductTypesResponseDTO{
+                    Typeid = p.ProductTypes.Typeid ,
+                    TypeName = p.ProductTypes.TypeName
+                },
                 Price = p.Price, 
                 ImageURL = p.ImageURL ?? "https://images.vexels.com/media/users/3/144131/isolated/preview/29576a7e0442960346703d3ecd6bac04-icono-de-doodle-de-imagen.png"
             }).ToListAsync();

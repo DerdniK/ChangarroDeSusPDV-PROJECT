@@ -12,5 +12,6 @@ namespace POSBackend_API.Data
         //& Aqui asignamos que el model de version es "DatabaseVersionModel" y se va a llamar "DatabaseVersion"
         public DbSet<User> UserTable {get; set;}
         public DbSet<Products> ProductsTable {get; set;}
+        public DbSet<ProductTypes> ProductsTypeTable {get; set;}
     }
 }
