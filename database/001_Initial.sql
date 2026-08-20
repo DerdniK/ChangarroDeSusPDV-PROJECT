@@ -5,4 +5,3 @@ CREATE TABLE DatabaseVersion
 
 INSERT INTO DatabaseVersion (Version)
 VALUES ('1.0.0');
-
